@@ -42,7 +42,9 @@
 			membershipExceptions = (
 				Info.plist,
 				assets/darksword.icon,
+				assets/darksword.icon/icon.json,
 				assets/icon2.icon,
+				assets/icon2.icon/icon.json,
 			);
 			target = CC1C8B382F71DF9C00206982 /* lara */;
 		};

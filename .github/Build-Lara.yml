@@ -1,0 +1,93 @@
+name: ⚡ Build Lara PSD
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: show xcode version
+        run: xcodebuild -version
+
+      - name: build
+        run: |
+          # 1. Tạo biến thời gian và tên file IPA
+          TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+          IPA_NAME="lara_${TIMESTAMP}.ipa"
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+          
+          # 2. Chạy Xcodebuild
+          xcodebuild \
+            -project lara.xcodeproj \
+            -scheme lara \
+            -configuration Debug \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            archive \
+            -archivePath $PWD/build/lara.xcarchive | tee build.log
+      
+          # 3. Kiểm tra App và đóng gói IPA
+          APP_PATH="$PWD/build/lara.xcarchive/Products/Applications/lara.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Missing app at $APP_PATH"
+            exit 1
+          fi
+          
+          rm -rf "$PWD/build/Payload"
+          mkdir -p "$PWD/build/Payload"
+          cp -R "$APP_PATH" "$PWD/build/Payload/"
+          
+          # Nén với tên file chứa timestamp
+          (cd "$PWD/build" && /usr/bin/zip -qry "$IPA_NAME" Payload)
+
+      - name: upload build artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lara-ipa
+          path: |
+            build/${{ env.IPA_NAME }}
+            build.log
+
+      - name: create release tag
+        if: github.event_name != 'pull_request'
+        id: tag
+        run: |
+          TAG="build_$(date +'%Y%m%d%H%M%S')-$(git rev-parse --short HEAD)"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: get last 12h commits
+        if: github.event_name != 'pull_request'
+        id: commits
+        run: |
+          COMMITS=$(git log --since="12 hours ago" --pretty=format:"- %h %s (%an)")
+          if [ -z "$COMMITS" ]; then
+            COMMITS="No commits in the last 12 hours"
+          fi
+          echo "COMMITS<<EOF" >> $GITHUB_ENV
+          echo "$COMMITS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: delete old release
+        if: github.event_name != 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const releases = await github.rest.repos.listReleases

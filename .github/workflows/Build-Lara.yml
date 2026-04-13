@@ -88,8 +88,28 @@ jobs:
             ### Build Information
             - **Build Number:** ${{ env.B_NUMBER }}
             - **Filename:** ${{ env.IPA_NAME }}
-            - **Changes:**
-            $(git log --since="12 hours ago" --pretty=format:"- %h %s (%an)")
+            - **Changes:** : $(git log --since="12 hours ago" --pretty=format:"- %h %s (%an)")
           files: build/${{ env.IPA_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 📢 Thông báo qua Telegram
+        if: success()
+        run: |
+          MSG="✅ *BUILD KERNEL THÀNH CÔNG!*
+          
+          🏷️ *Release Tag:* \`${{ env.RELEASE_TAG }}\`
+          📱 *Thiết bị:* iOS 17.0-26.0.1
+          📦 *Build Number:* \`${{ env.B_NUMBER }}\`
+          🧬 *Filename:* \`${{ env.IPA_NAME }}\`
+          # ඞ  *SusFS:* \`${{ env.SUSFS_VER }}\`
+          # 🛡️ *Baseband Guard:* \`${{ github.event.inputs.baseband_guard }}\`
+          ⏰ *Hoàn thành:* \`${{ env.TIME_FORM }}\`
+          
+          🔗 [Xem bản Release tại đây](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})"
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TK }}/sendMessage" \
+            -d "chat_id=${{ secrets.TG_CHAT_ID }}" \
+            -d "text=$MSG" \
+            -d "parse_mode=Markdown" \
+            -d "disable_web_page_preview=false"

@@ -96,7 +96,7 @@ jobs:
       - name: 📢 Thông báo qua Telegram
         if: success()
         run: |
-          MSG="✅ *BUILD KERNEL THÀNH CÔNG!*
+          MSG="✅ *BUILD LARA PSD THÀNH CÔNG!*
           
           🏷️ *Release Tag:* \`${{ env.RELEASE_TAG }}\`
           📱 *Thiết bị:* iOS 17.0-26.0.1

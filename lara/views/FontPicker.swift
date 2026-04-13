@@ -83,12 +83,12 @@ struct FontPicker: View {
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
+
                                 Button {
                                     mgr.cleanFontCache()
                                     mgr.respring()
                                 } label: {
                                     Label("Clear Cache & Respring", systemImage: "trash.slash")
-                                        .foregroundColor(.red)
                                 }
                             } label: {
                                 HStack {
@@ -103,7 +103,6 @@ struct FontPicker: View {
                     }
                 } header: {
                     Text("Custom Fonts")
-                }
                 } footer: {
                     Text("Some custom fonts will not work for app icons and other stuff, some will not work at all. If you want them to work, patch the normal SFUI.ttf to use your fonts glyph symbols and use that as your custom font.")
                 }

@@ -1,0 +1,103 @@
+name: ⚡ Build Lara PSD
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: build
+        run: |
+          # 1. Khởi tạo thông số build
+          TIMESTAMP=$(date +'%Y-%m-%d %H:%M:%S')
+          FILE_TIME=$(date +'%Y%m%d_%H%M%S')
+          B_NUMBER="b${{ github.run_number }}"
+          IPA_NAME="Lara-PSD-${B_NUMBER}-${FILE_TIME}.ipa"
+          
+          # Lưu vào ENV để dùng cho các bước sau
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+          echo "B_NUMBER=$B_NUMBER" >> $GITHUB_ENV
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+          
+          mkdir -p build
+          xcodebuild \
+            -project lara.xcodeproj \
+            -scheme lara \
+            -configuration Debug \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            archive \
+            -archivePath $PWD/build/lara.xcarchive | xcbeautify || xcodebuild \
+            -project lara.xcodeproj \
+            -scheme lara \
+            -configuration Debug \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            archive \
+            -archivePath $PWD/build/lara.xcarchive | tee build.log
+      
+          APP_PATH="$PWD/build/lara.xcarchive/Products/Applications/lara.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Missing app at $APP_PATH"
+            exit 1
+          fi
+          
+          rm -rf "$PWD/build/Payload"
+          mkdir -p "$PWD/build/Payload"
+          cp -R "$APP_PATH" "$PWD/build/Payload/"
+          (cd "$PWD/build" && /usr/bin/zip -qry "$IPA_NAME" Payload)
+
+      - name: create new release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.B_NUMBER }}
+          name: Lara PSD ${{ env.B_NUMBER }}
+          body: |
+            ### Build Information
+            - **Build Number:** ${{ env.B_NUMBER }}
+            - **Timestamp:** ${{ env.TIMESTAMP }}
+            - **Changes:**
+            $(git log --since="12 hours ago" --pretty=format:"- %h %s (%an)")
+          files: build/${{ env.IPA_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📢 Thông báo qua Telegram
+        if: success() && github.event_name != 'pull_request'
+        run: |
+          # URL tải trực tiếp file IPA từ Release
+          DOWNLOAD_URL="${{ github.server_url }}/${{ github.repository }}/releases/download/${{ env.B_NUMBER }}/${{ env.IPA_NAME }}"
+          
+          MSG="✅ *BUILD LARA PSD THÀNH CÔNG!*
+
+          🏷️ *Release Tag:* \`${{ env.B_NUMBER }}\`
+          📦 *Build Number:* \`${{ env.B_NUMBER }}\`
+          🧬 *Filename:* \`${{ env.IPA_NAME }}\`
+          ⏰ *Hoàn thành:* \`${{ env.TIMESTAMP }}\`
+
+          📥 [Tải về IPA trực tiếp]($DOWNLOAD_URL)
+          🔗 [Xem bản Release tại đây](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.B_NUMBER }})"
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TK }}/sendMessage" \
+            -d "chat_id=${{ secrets.TG_CHAT_ID }}" \
+            -d "text=$MSG" \
+            -d "parse_mode=Markdown" \
+            -d "disable_web_page_preview=false"

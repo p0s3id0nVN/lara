@@ -25,6 +25,11 @@ jobs:
 
       - name: build
         run: |
+          # 1. Khởi tạo tên file với ngày giờ build (Ví dụ: lara-PSD-20260413_110000.ipa)
+          TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+          IPA_NAME="lara-PSD-${TIMESTAMP}.ipa"
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+          
           mkdir -p build
           xcodebuild \
             -project lara.xcodeproj \
@@ -45,7 +50,7 @@ jobs:
             archive \
             -archivePath $PWD/build/lara.xcarchive | tee build.log
       
-          # 3. Kiểm tra App và đóng gói IPA
+          # 2. Kiểm tra App và đóng gói IPA
           APP_PATH="$PWD/build/lara.xcarchive/Products/Applications/lara.app"
           if [ ! -d "$APP_PATH" ]; then
             echo "Missing app at $APP_PATH"
@@ -56,7 +61,7 @@ jobs:
           mkdir -p "$PWD/build/Payload"
           cp -R "$APP_PATH" "$PWD/build/Payload/"
           
-          # Nén với tên file chứa timestamp
+          # 3. Nén với tên file đã định nghĩa ở trên
           (cd "$PWD/build" && /usr/bin/zip -qry "$IPA_NAME" Payload)
 
       - name: upload build artifact
@@ -93,4 +98,27 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const releases = await github.rest.repos.listReleases
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+
+            const latestRelease = releases.data.find(r => r.tag_name === 'latest');
+            if (latestRelease) {
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: latestRelease.id
+              });
+            }
+
+      - name: create new release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: Latest Build
+          body: ${{ env.COMMITS }}
+          files: build/${{ env.IPA_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

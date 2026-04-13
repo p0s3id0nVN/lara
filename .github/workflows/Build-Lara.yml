@@ -25,10 +25,14 @@ jobs:
 
       - name: build
         run: |
-          # 1. Khởi tạo tên file với ngày giờ build (Ví dụ: lara-PSD-20260413_110000.ipa)
+          # 1. Khởi tạo tên file với số build (run_number) và timestamp
+          # github.run_number sẽ tự tăng sau mỗi lần chạy (b1, b2, b3...)
           TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
-          IPA_NAME="lara-PSD-${TIMESTAMP}.ipa"
+          B_NUMBER="b${{ github.run_number }}"
+          IPA_NAME="Lara-PSD-${B_NUMBER}-${TIMESTAMP}.ipa"
+          
           echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+          echo "B_NUMBER=$B_NUMBER" >> $GITHUB_ENV
           
           mkdir -p build
           xcodebuild \
@@ -61,7 +65,7 @@ jobs:
           mkdir -p "$PWD/build/Payload"
           cp -R "$APP_PATH" "$PWD/build/Payload/"
           
-          # 3. Nén với tên file đã định nghĩa ở trên
+          # 3. Nén với tên file Lara-PSD-b[n]-[date].ipa
           (cd "$PWD/build" && /usr/bin/zip -qry "$IPA_NAME" Payload)
 
       - name: upload build artifact
@@ -73,52 +77,19 @@ jobs:
             build/${{ env.IPA_NAME }}
             build.log
 
-      - name: create release tag
-        if: github.event_name != 'pull_request'
-        id: tag
-        run: |
-          TAG="build_$(date +'%Y%m%d%H%M%S')-$(git rev-parse --short HEAD)"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-      - name: get last 12h commits
-        if: github.event_name != 'pull_request'
-        id: commits
-        run: |
-          COMMITS=$(git log --since="12 hours ago" --pretty=format:"- %h %s (%an)")
-          if [ -z "$COMMITS" ]; then
-            COMMITS="No commits in the last 12 hours"
-          fi
-          echo "COMMITS<<EOF" >> $GITHUB_ENV
-          echo "$COMMITS" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      # - name: delete old release
-      #   if: github.event_name != 'pull_request'
-      #   uses: actions/github-script@v7
-      #   with:
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     script: |
-      #       const releases = await github.rest.repos.listReleases({
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo
-      #       });
-
-      #       const latestRelease = releases.data.find(r => r.tag_name === 'latest');
-      #       if (latestRelease) {
-      #         await github.rest.repos.deleteRelease({
-      #           owner: context.repo.owner,
-      #           repo: context.repo.repo,
-      #           release_id: latestRelease.id
-      #         });
-      #       }
-
       - name: create new release
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: latest
-          name: Latest Build
-          body: ${{ env.COMMITS }}
+          # Sử dụng b[số build] làm tag để không bị trùng lặp và không ghi đè bản cũ
+          tag_name: ${{ env.B_NUMBER }}
+          name: Lara PSD ${{ env.B_NUMBER }}
+          body: |
+            ### Build Information
+            - **Build Number:** ${{ env.B_NUMBER }}
+            - **Filename:** ${{ env.IPA_NAME }}
+            - **Changes:**
+            $(git log --since="12 hours ago" --pretty=format:"- %h %s (%an)")
           files: build/${{ env.IPA_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

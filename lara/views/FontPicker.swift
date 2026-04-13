@@ -101,6 +101,17 @@ struct FontPicker: View {
                             }
                         }
                     }
+                    
+                    // ĐÂY LÀ NÚT BỊ THIẾU
+                    Button {
+                        showimporter = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "plus.circle")
+                            Text("Import Font")
+                        }
+                    }
+                    
                 } header: {
                     Text("Custom Fonts")
                 } footer: {

@@ -11,5 +11,6 @@
 #import "apfs.h"
 #import "vfs.h"
 #import "sbx.h"
+#import "_UIKeyboardCache.h"
 
 void test(NSString *path);

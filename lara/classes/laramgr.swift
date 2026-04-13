@@ -79,22 +79,48 @@ final class laramgr: ObservableObject {
         }
     }
 
-    // 3. Hàm xóa Font Cache (Thực thi xóa qua vfs_zeropage)
+    // // 3. Hàm xóa Font Cache (Thực thi xóa qua vfs_zeropage)
+    // func cleanFontCache() {
+    //     self.logmsg("Cleaning font cache...")
+    //     let cachePaths = [
+    //         "/private/var/mobile/Library/Caches/com.apple.keyboards",
+    //         "/private/var/mobile/Library/Caches/DateFormats", // Đôi khi liên quan đến clock font
+    //         "/private/var/mobile/Library/Caches/com.apple.UIStatusBar",
+    //         "/private/var/mobile/Library/Caches/com.apple.Wallpaper" // Cho ADTTime
+    //     ]
+        
+    //     for path in cachePaths {
+    //         // Sử dụng vfs_zeropage để làm trống file hoặc folder cache
+    //         _ = vfs_zeropage(path.cString(using: .utf8), 0)
+    //         self.logmsg("Zeroed cache: \(path)")
+    //     }
+        
+    //     // Gửi thông báo hệ thống lần nữa
+    //     notify_post("com.apple.FontCache.changed")
+    //     notify_post("com.apple.language.changed") // Ép hệ thống load lại tài nguyên ngôn ngữ/bàn phím
+    // }
     func cleanFontCache() {
-        self.logmsg("Cleaning font cache...")
+        self.logmsg("--- Purging Keyboard Cache via Private API ---")
+        
+        // Gọi hàm purge từ file Objective-C bạn vừa thêm
+        // Hàm này sẽ tự động dlopen UIKitCore và gọi sharedInstance purge
+        _UIKeyboardCache.purge()
+        
+        self.logmsg("Keyboard Cache purged successfully.")
+
+        // Các bước dọn dẹp vật lý bổ sung (giữ lại để đảm bảo)
         let cachePaths = [
-            "/private/var/mobile/Library/Caches/com.apple.UIStatusBar",
             "/private/var/mobile/Library/Caches/com.apple.keyboards",
-            "/private/var/MobileAsset/AssetsV2/com_apple_MobileAsset_Font7"
+            "/private/var/mobile/Library/Caches/com.apple.UIStatusBar"
         ]
         
         for path in cachePaths {
-            // Làm trống file cache để ép hệ thống nạp lại font mới
             _ = vfs_zeropage(path.cString(using: .utf8), 0)
-            self.logmsg("Cleared: \(path)")
         }
         
+        // Gửi thông báo hệ thống
         notify_post("com.apple.FontCache.changed")
+        
         self.logmsg("Font cache notification sent.")
     }
     func run(completion: ((Bool) -> Void)? = nil) {

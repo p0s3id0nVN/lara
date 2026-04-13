@@ -99,7 +99,7 @@ jobs:
         if: success() && github.event_name != 'pull_request'
         run: |
           DOWNLOAD_URL="${{ github.server_url }}/${{ github.repository }}/releases/download/${{ env.B_NUMBER }}/${{ env.IPA_NAME }}"
-          
+          RE_URL=https://github.com/jailbreakdotparty/dirtyZero/releases/download/respringapp/respringapp.ipa
           MSG="✅ *BUILD LARA PSD THÀNH CÔNG!*
 
           🏷️ *Release Tag:* \`${{ env.B_NUMBER }}\`
@@ -107,6 +107,8 @@ jobs:
           🧬 *Filename:* \`${{ env.IPA_NAME }}\`
           ⏰ *Hoàn thành:* \`${{ env.TIMESTAMP }}\`
           📥 [Tải về IPA trực tiếp]($DOWNLOAD_URL)
+          📥 [App Respring]($RE_URL)"
+          📝 *Ghi nhớ:* `Vào : settings > Display and brightness > Display zoom > Chuyển chế độ `
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TK }}/sendMessage" \
             -d "chat_id=${{ secrets.TG_CHAT_ID }}" \
             -d "text=$MSG" \

@@ -78,12 +78,15 @@ final class laramgr: ObservableObject {
         }
         
         self.logmsg("--- Bulk Overwrite Finished ---")
+        
+        // Gọi dọn dẹp cache
         cleanFontCache()
         
+        // Respring sau khi xong
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             self.respring()
         }
-    }
+    } // Đóng ngoặc hàm applyAllFontsBulk tại đây
 
     func cleanFontCache() {
         self.logmsg("Cleaning font cache...")

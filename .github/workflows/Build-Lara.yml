@@ -43,7 +43,7 @@ jobs:
             -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO \
             archive \
-            -archivePath $PWD/build/lara.xcarchive
+            -archivePath $PWD/build/lara.xcarchive | tee build.log
       
           # 3. Kiểm tra App và đóng gói IPA
           APP_PATH="$PWD/build/lara.xcarchive/Products/Applications/lara.app"

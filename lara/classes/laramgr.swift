@@ -63,55 +63,42 @@ final class laramgr: ObservableObject {
     func applyAllFontsBulk(source: String) {
         self.logmsg("--- Starting Auto-Detect Bulk Overwrite ---")
         
-        // 1. Ghi đè SFUI (Mặc định)
         _ = vfsoverwritefromlocalpath(target: laramgr.fontpath, source: source)
-        
-        // 2. Ghi đè ADTTime (Mặc định)
         _ = vfsoverwritefromlocalpath(target: laramgr.adttimettc, source: source)
 
-        // 3. Tự động nhận diện và ghi đè các file Keycaps
         let dynamicFiles = ["Keycaps.ttc", "KeycapsPad.ttc", "PhoneKeyCaps.ttf"]
         
         for file in dynamicFiles {
             if let targetPath = getValidPath(filename: file) {
                 let ok = vfsoverwritefromlocalpath(target: targetPath, source: source)
-                if ok {
-                    self.logmsg("Applied: \(file) at \(targetPath)")
-                }
+                if ok { self.logmsg("Applied: \(file) at \(targetPath)") }
             } else {
-                self.logmsg("Skipped: \(file) (Not found in any known directory)")
+                self.logmsg("Skipped: \(file) (Not found)")
             }
         }
         
         self.logmsg("--- Bulk Overwrite Finished ---")
         cleanFontCache()
-        self.logmsg("Success! Please Respring to see changes.")
-    
-        // Tự động respring sau 1 giây để người dùng kịp đọc log
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             self.respring()
+        }
     }
+
     func cleanFontCache() {
         self.logmsg("Cleaning font cache...")
-        
-        // Danh sách các đường dẫn cache font phổ biến trên iOS
         let cachePaths = [
-            "/private/var/mobile/Library/Caches/com.apple.UIStatusBar",
             "/private/var/mobile/Library/Caches/com.apple.keyboards",
-            "/private/var/MobileAsset/AssetsV2/com_apple_MobileAsset_Font7"
+            "/private/var/mobile/Library/Caches/com.apple.UIStatusBar"
         ]
         
         for path in cachePaths {
-            // Sử dụng hàm xóa của bạn hoặc qua VFS nếu cần
-            // Ở đây mình giả định bạn dùng một hàm xóa file qua VFS hoặc sandbox escape
-            // Nếu bạn có hàm vfs_remove, hãy gọi nó ở đây.
+            // Thử xóa cache qua VFS
+            let _ = vfs_zeropage(path.cString(using: .utf8), 0) 
             self.logmsg("Clearing cache at: \(path)")
         }
         
-        // Thông báo cho hệ thống rằng font đã thay đổi (Sử dụng Darwin Notification)
-        let GSFontCacheNotification = "com.apple.FontCache.changed"
-        notify_post(GSFontCacheNotification)
-        
+        notify_post("com.apple.FontCache.changed")
         self.logmsg("Font cache notification sent.")
     }
     func run(completion: ((Bool) -> Void)? = nil) {

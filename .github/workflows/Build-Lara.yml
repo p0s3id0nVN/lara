@@ -102,9 +102,7 @@ jobs:
           📱 *Thiết bị:* iOS 17.0-26.0.1
           📦 *Build Number:* \`${{ env.B_NUMBER }}\`
           🧬 *Filename:* \`${{ env.IPA_NAME }}\`
-          # ඞ  *SusFS:* \`${{ env.SUSFS_VER }}\`
-          # 🛡️ *Baseband Guard:* \`${{ github.event.inputs.baseband_guard }}\`
-          ⏰ *Hoàn thành:* \`${{ env.TIME_FORM }}\`
+          ⏰ *Hoàn thành:* \`${{ env.TIMESTAMP }}\`
           
           🔗 [Xem bản Release tại đây](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})"
           

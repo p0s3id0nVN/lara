@@ -92,25 +92,25 @@ jobs:
           echo "$COMMITS" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-      - name: delete old release
-        if: github.event_name != 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const releases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            });
+      # - name: delete old release
+      #   if: github.event_name != 'pull_request'
+      #   uses: actions/github-script@v7
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       const releases = await github.rest.repos.listReleases({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo
+      #       });
 
-            const latestRelease = releases.data.find(r => r.tag_name === 'latest');
-            if (latestRelease) {
-              await github.rest.repos.deleteRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: latestRelease.id
-              });
-            }
+      #       const latestRelease = releases.data.find(r => r.tag_name === 'latest');
+      #       if (latestRelease) {
+      #         await github.rest.repos.deleteRelease({
+      #           owner: context.repo.owner,
+      #           repo: context.repo.repo,
+      #           release_id: latestRelease.id
+      #         });
+      #       }
 
       - name: create new release
         if: github.event_name != 'pull_request'

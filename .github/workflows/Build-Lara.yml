@@ -4,6 +4,13 @@ on:
     branches: [ main ]
   pull_request:
   workflow_dispatch:
+    # THÊM ĐOẠN NÀY ĐỂ NHẬP CHANGE LOG THỦ CÔNG
+    inputs:
+      changelog:
+        description: 'Nhập nội dung thay đổi (Change Log)'
+        required: false
+        type: string
+        default: 'Cập nhật hệ thống và sửa lỗi nhỏ.'
 
 permissions:
   contents: write
@@ -28,10 +35,17 @@ jobs:
           B_NUMBER="b${{ github.run_number }}"
           IPA_NAME="Lara-PSD-${B_NUMBER}-${FILE_TIME}.ipa"
           
+          # Lấy Change Log từ input hoặc từ Git log nếu để trống
+          INPUT_LOG="${{ github.event.inputs.changelog }}"
+          if [ -z "$INPUT_LOG" ]; then
+            INPUT_LOG=$(git log -1 --pretty=format:"%s")
+          fi
+          
           # Lưu vào ENV để dùng cho các bước sau
           echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
           echo "B_NUMBER=$B_NUMBER" >> $GITHUB_ENV
           echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+          echo "CHANGELOG=$INPUT_LOG" >> $GITHUB_ENV
           
           mkdir -p build
           xcodebuild \
@@ -71,11 +85,12 @@ jobs:
           tag_name: ${{ env.B_NUMBER }}
           name: Lara PSD ${{ env.B_NUMBER }}
           body: |
-            ### Build Information
+            ### 📝 Change Log
+            ${{ env.CHANGELOG }}
+
+            ### ℹ️ Build Information
             - **Build Number:** ${{ env.B_NUMBER }}
             - **Timestamp:** ${{ env.TIMESTAMP }}
-            - **Changes:**
-            $(git log --since="12 hours ago" --pretty=format:"- %h %s (%an)")
           files: build/${{ env.IPA_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,13 +98,12 @@ jobs:
       - name: 📢 Thông báo qua Telegram
         if: success() && github.event_name != 'pull_request'
         run: |
-          # URL tải trực tiếp file IPA từ Release
           DOWNLOAD_URL="${{ github.server_url }}/${{ github.repository }}/releases/download/${{ env.B_NUMBER }}/${{ env.IPA_NAME }}"
           
           MSG="✅ *BUILD LARA PSD THÀNH CÔNG!*
 
           🏷️ *Release Tag:* \`${{ env.B_NUMBER }}\`
-          📦 *Build Number:* \`${{ env.B_NUMBER }}\`
+          📝 *Change Log:* \`${{ env.CHANGELOG }}\`
           🧬 *Filename:* \`${{ env.IPA_NAME }}\`
           ⏰ *Hoàn thành:* \`${{ env.TIMESTAMP }}\`
 

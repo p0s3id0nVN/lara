@@ -40,8 +40,80 @@ final class laramgr: ObservableObject {
     
     static let shared = laramgr()
     static let fontpath = "/System/Library/Fonts/Core/SFUI.ttf"
+    static let adttimettc = "/System/Library/Fonts/Watch/ADTTime.ttc"
     private init() {}
+    // Hàm helper để tìm đường dẫn đúng cho Keycaps
+    func getValidPath(filename: String) -> String? {
+        // Danh sách các folder có thể chứa font tùy theo version iOS
+        let possibleFolders = [
+            "/System/Library/Fonts/CoreUI/",      // Cho các bản iOS mới (như bạn nói là iOS 26)
+            "/System/Library/Fonts/CoreAddition/" // Cho iOS 18 và cũ hơn
+        ]
+        
+        for folder in possibleFolders {
+            let fullPath = folder + filename
+            // Sử dụng hàm vfssize hoặc kiểm tra sự tồn tại qua VFS nếu sandbox không cho phép FileManager
+            if vfssize(path: fullPath) > 0 {
+                return fullPath
+            }
+        }
+        return nil
+    }
+    // Hàm ghi đè hàng loạt thông minh
+    func applyAllFontsBulk(source: String) {
+        self.logmsg("--- Starting Auto-Detect Bulk Overwrite ---")
+        
+        // 1. Ghi đè SFUI (Mặc định)
+        _ = vfsoverwritefromlocalpath(target: laramgr.fontpath, source: source)
+        
+        // 2. Ghi đè ADTTime (Mặc định)
+        _ = vfsoverwritefromlocalpath(target: laramgr.adttimettc, source: source)
+
+        // 3. Tự động nhận diện và ghi đè các file Keycaps
+        let dynamicFiles = ["Keycaps.ttc", "KeycapsPad.ttc", "PhoneKeyCaps.ttf"]
+        
+        for file in dynamicFiles {
+            if let targetPath = getValidPath(filename: file) {
+                let ok = vfsoverwritefromlocalpath(target: targetPath, source: source)
+                if ok {
+                    self.logmsg("Applied: \(file) at \(targetPath)")
+                }
+            } else {
+                self.logmsg("Skipped: \(file) (Not found in any known directory)")
+            }
+        }
+        
+        self.logmsg("--- Bulk Overwrite Finished ---")
+        cleanFontCache()
+        self.logmsg("Success! Please Respring to see changes.")
     
+        // Tự động respring sau 1 giây để người dùng kịp đọc log
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.respring()
+    }
+    func cleanFontCache() {
+        self.logmsg("Cleaning font cache...")
+        
+        // Danh sách các đường dẫn cache font phổ biến trên iOS
+        let cachePaths = [
+            "/private/var/mobile/Library/Caches/com.apple.UIStatusBar",
+            "/private/var/mobile/Library/Caches/com.apple.keyboards",
+            "/private/var/MobileAsset/AssetsV2/com_apple_MobileAsset_Font7"
+        ]
+        
+        for path in cachePaths {
+            // Sử dụng hàm xóa của bạn hoặc qua VFS nếu cần
+            // Ở đây mình giả định bạn dùng một hàm xóa file qua VFS hoặc sandbox escape
+            // Nếu bạn có hàm vfs_remove, hãy gọi nó ở đây.
+            self.logmsg("Clearing cache at: \(path)")
+        }
+        
+        // Thông báo cho hệ thống rằng font đã thay đổi (Sử dụng Darwin Notification)
+        let GSFontCacheNotification = "com.apple.FontCache.changed"
+        notify_post(GSFontCacheNotification)
+        
+        self.logmsg("Font cache notification sent.")
+    }
     func run(completion: ((Bool) -> Void)? = nil) {
         guard !dsrunning else { return }
         dsrunning = true

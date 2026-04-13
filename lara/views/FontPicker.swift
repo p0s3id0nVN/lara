@@ -62,27 +62,48 @@ struct FontPicker: View {
                 Section {
                     if !customfonts.isEmpty {
                         ForEach(customfonts) { font in
-                            Button {
-                                if !FileManager.default.fileExists(atPath: font.path) {
-                                    mgr.logmsg("custom font missing: \(font.name)")
-                                    customfonts.removeAll { $0.name == font.name }
-                                    save(customfonts)
-                                    return
+                            Menu {
+                                // Nút "All-in-One" thông minh
+                                Button {
+                                    mgr.applyAllFontsBulk(source: font.path)
+                                } label: {
+                                    Label("Apply to All (Auto Detect Path)", systemImage: "magicmouse")
                                 }
-                                let success = mgr.vfsoverwritefromlocalpath(target: laramgr.fontpath, source: font.path)
-                                success ? mgr.logmsg("font changed to \(font.name)") : mgr.logmsg("failed to change font")
+                                
+                                Divider()
+
+                                // Vẫn giữ nút SFUI riêng nếu cần
+                                Button("Apply SFUI Only") {
+                                    mgr.vfsoverwritefromlocalpath(target: laramgr.fontpath, source: font.path)
+                                }
+                                
+                                Button(role: .destructive) {
+                                    customfonts.removeAll { $0.id == font.id }
+                                    save(customfonts)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                Button {
+                                    mgr.cleanFontCache()
+                                    mgr.respring()
+                                } label: {
+                                    Label("Clear Cache & Respring", systemImage: "trash.slash")
+                                        .foregroundColor(.red)
+                                }
                             } label: {
-                                Text(font.name)
-                                    .font(viewfontfile(path: font.path, size: 17))
+                                HStack {
+                                    Text(font.name)
+                                        .font(viewfontfile(path: font.path, size: 17))
+                                    Spacer()
+                                    Image(systemName: "wand.and.stars")
+                                        .foregroundColor(.purple)
+                                }
                             }
                         }
                     }
-                    
-                    Button("Import Font") {
-                        showimporter = true
-                    }
                 } header: {
                     Text("Custom Fonts")
+                }
                 } footer: {
                     Text("Some custom fonts will not work for app icons and other stuff, some will not work at all. If you want them to work, patch the normal SFUI.ttf to use your fonts glyph symbols and use that as your custom font.")
                 }

@@ -39,6 +39,8 @@ final class laramgr: ObservableObject {
     // 1. Hàm tìm đường dẫn đúng
     func getValidPath(filename: String) -> String? {
         let possibleFolders = [
+            "/System/Library/Fonts/",
+            "/System/Library/Fonts/Core/",
             "/System/Library/Fonts/CoreUI/",
             "/System/Library/Fonts/CoreAddition/"
         ]

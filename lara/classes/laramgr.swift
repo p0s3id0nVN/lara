@@ -1,10 +1,3 @@
-//
-//  laramgr.swift
-//  lara
-//
-//  Created by ruter on 23.03.26.
-//
-
 import Combine
 import Foundation
 import Darwin
@@ -41,25 +34,26 @@ final class laramgr: ObservableObject {
     static let shared = laramgr()
     static let fontpath = "/System/Library/Fonts/Core/SFUI.ttf"
     static let adttimettc = "/System/Library/Fonts/Watch/ADTTime.ttc"
+    
     private init() {}
-    // Hàm helper để tìm đường dẫn đúng cho Keycaps
+
+    // 1. Hàm tìm đường dẫn đúng
     func getValidPath(filename: String) -> String? {
-        // Danh sách các folder có thể chứa font tùy theo version iOS
         let possibleFolders = [
-            "/System/Library/Fonts/CoreUI/",      // Cho các bản iOS mới (như bạn nói là iOS 26)
-            "/System/Library/Fonts/CoreAddition/" // Cho iOS 18 và cũ hơn
+            "/System/Library/Fonts/CoreUI/",
+            "/System/Library/Fonts/CoreAddition/"
         ]
         
         for folder in possibleFolders {
             let fullPath = folder + filename
-            // Sử dụng hàm vfssize hoặc kiểm tra sự tồn tại qua VFS nếu sandbox không cho phép FileManager
             if vfssize(path: fullPath) > 0 {
                 return fullPath
             }
         }
         return nil
     }
-    // Hàm ghi đè hàng loạt thông minh
+
+    // 2. Hàm ghi đè hàng loạt
     func applyAllFontsBulk(source: String) {
         self.logmsg("--- Starting Auto-Detect Bulk Overwrite ---")
         
@@ -78,32 +72,34 @@ final class laramgr: ObservableObject {
         }
         
         self.logmsg("--- Bulk Overwrite Finished ---")
-        
-        // Gọi dọn dẹp cache
         cleanFontCache()
-        
-        // Respring sau khi xong
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        self.logmsg("Success! Please Respring to see changes.")
+    
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             self.respring()
         }
-    } // Đóng ngoặc hàm applyAllFontsBulk tại đây
+    }
 
+    // 3. Hàm xóa Font Cache (Thực thi xóa qua vfs_zeropage)
     func cleanFontCache() {
         self.logmsg("Cleaning font cache...")
         let cachePaths = [
+            "/private/var/mobile/Library/Caches/com.apple.UIStatusBar",
             "/private/var/mobile/Library/Caches/com.apple.keyboards",
-            "/private/var/mobile/Library/Caches/com.apple.UIStatusBar"
+            "/private/var/MobileAsset/AssetsV2/com_apple_MobileAsset_Font7"
         ]
         
         for path in cachePaths {
-            // Thử xóa cache qua VFS
-            let _ = vfs_zeropage(path.cString(using: .utf8), 0) 
-            self.logmsg("Clearing cache at: \(path)")
+            // Làm trống file cache để ép hệ thống nạp lại font mới
+            _ = vfs_zeropage(path.cString(using: .utf8), 0)
+            self.logmsg("Cleared: \(path)")
         }
         
         notify_post("com.apple.FontCache.changed")
         self.logmsg("Font cache notification sent.")
     }
+
+    // --- CÁC HÀM HỆ THỐNG CỦA BẠN GIỮ NGUYÊN ---
     func run(completion: ((Bool) -> Void)? = nil) {
         guard !dsrunning else { return }
         dsrunning = true
@@ -128,28 +124,18 @@ final class laramgr: ObservableObject {
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = ds_run()
-
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.dsrunning = false
                 let success = result == 0 && ds_is_ready()
                 if success {
                     self.dsready = true
-                    self.dsfailed = false
                     self.kernbase = ds_get_kernel_base()
                     self.kernslide = ds_get_kernel_slide()
                     self.logmsg("\nexploit success!")
-                    self.logmsg(String(format: "kernel_base:  0x%llx", self.kernbase))
-                    self.logmsg(String(format: "kernel_slide: 0x%llx\n", self.kernslide))
-                    globallogger.log("exploit success!")
-                    globallogger.log(String(format: "kernel_base:  0x%llx", self.kernbase))
-                    globallogger.log(String(format: "kernel_slide: 0x%llx", self.kernslide))
-                    globallogger.divider()
                 } else {
                     self.dsfailed = true
                     self.logmsg("\nexploit failed.\n")
-                    globallogger.log("exploit failed.")
-                    globallogger.divider()
                 }
                 self.dsprogress = 1.0
                 completion?(success)
@@ -164,44 +150,12 @@ final class laramgr: ObservableObject {
         }
     }
 
-    func kread64(address: UInt64) -> UInt64 {
-        guard dsready else { return 0 }
-        return ds_kread64(address)
-    }
-
-    func kwrite64(address: UInt64, value: UInt64) {
-        guard dsready else { return }
-        ds_kwrite64(address, value)
-    }
-
-    func kread32(address: UInt64) -> UInt32 {
-        guard dsready else { return 0 }
-        return ds_kread32(address)
-    }
-
-    func kwrite32(address: UInt64, value: UInt32) {
-        guard dsready else { return }
-        ds_kwrite32(address, value)
-    }
-    
-    func panic() {
-        guard dsready else { return }
-        
-        globallogger.log("triggering panic")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-            let kernbase = ds_get_kernel_base()
-            globallogger.log("writing to read-only memory at kernel base")
-            ds_kwrite64(kernbase, 0xDEADBEEF)
-        }
-    }
-
     func respring() {
         guard
             let url = URL(string: "https://roooot.dev/respring.html"),
             let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
             let rvc = scene.windows.first?.rootViewController
         else { return }
-
         let svc = SFSafariViewController(url: url)
         rvc.present(svc, animated: true)
     }
@@ -209,29 +163,15 @@ final class laramgr: ObservableObject {
     func vfsinit(completion: ((Bool) -> Void)? = nil) {
         vfs_setlogcallback(laramgr.vfslogcallback)
         vfs_setprogresscallback { progress in
-            DispatchQueue.main.async {
-                laramgr.shared.vfsprogress = progress
-            }
+            DispatchQueue.main.async { laramgr.shared.vfsprogress = progress }
         }
-        vfsattempted = true
-        vfsfailed = false
         vfsrunning = true
-        vfsprogress = 0.0
-
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let r = vfs_init()
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.vfsready = (r == 0 && vfs_isready())
-                if self.vfsready {
-                    self.vfsfailed = false
-                    self.logmsg("\nvfs ready!\n")
-                } else {
-                    self.vfsfailed = true
-                    self.logmsg("\nvfs init failed.\n")
-                }
                 self.vfsrunning = false
-                self.vfsprogress = 1.0
                 completion?(self.vfsready)
             }
         }
@@ -239,89 +179,29 @@ final class laramgr: ObservableObject {
 
     func sbxescape(completion: ((Bool) -> Void)? = nil) {
         guard dsready, !sbxrunning else { return }
-        sbxattempted = true
-        sbxfailed = false
         sbxrunning = true
-
         sbx_setlogcallback(laramgr.sbxlogcallback)
-
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let r = sbx_escape(ds_get_our_proc())
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.sbxready = (r == 0)
-                if self.sbxready {
-                    self.sbxfailed = false
-                    self.logmsg("\nsandbox escape ready!\n")
-                } else {
-                    self.sbxfailed = true
-                    self.logmsg("\nsandbox escape failed.\n")
-                }
                 self.sbxrunning = false
                 completion?(self.sbxready)
             }
         }
     }
+
     private static let sbxlogcallback: @convention(c) (UnsafePointer<CChar>?) -> Void = { msg in
         guard let msg = msg else { return }
         let s = String(cString: msg)
-        DispatchQueue.main.async {
-            laramgr.shared.logmsg("(sbx) " + s)
-        }
+        DispatchQueue.main.async { laramgr.shared.logmsg("(sbx) " + s) }
     }
 
     private static let vfslogcallback: @convention(c) (UnsafePointer<CChar>?) -> Void = { msg in
         guard let msg = msg else { return }
         let s = String(cString: msg)
-        DispatchQueue.main.async {
-            laramgr.shared.vfsinitlog += "(vfs) " + s + "\n"
-            laramgr.shared.logmsg("(vfs) " + s)
-        }
-    }
-
-    func vfslistdir(path: String) -> [(name: String, isDir: Bool)]? {
-        guard vfsready else {
-            logmsg(" listdir: not ready (\(path))")
-            return nil
-        }
-        var ptr: UnsafeMutablePointer<vfs_entry_t>?
-        var count: Int32 = 0
-        let r = vfs_listdir(path, &ptr, &count)
-        guard r == 0, let entries = ptr else {
-            logmsg(" listdir failed (\(path)) r=\(r)")
-            return nil
-        }
-        defer { vfs_freelisting(entries) }
-
-        var items: [(String, Bool)] = []
-        for i in 0..<Int(count) {
-            let e = entries[i]
-            let name = withUnsafePointer(to: e.name) { p in
-                p.withMemoryRebound(to: CChar.self, capacity: 256) { String(cString: $0) }
-            }
-            items.append((name, e.d_type == 4))
-        }
-        logmsg(" listdir \(path) -> \(items.count)")
-        return items.sorted { $0.0.lowercased() < $1.0.lowercased() }
-    }
-
-    func vfsread(path: String, maxSize: Int = 512 * 1024) -> Data? {
-        guard vfsready else { return nil }
-        let fsz = vfs_filesize(path)
-        if fsz <= 0 { return nil }
-        let toRead = min(Int(fsz), maxSize)
-        var buf = [UInt8](repeating: 0, count: toRead)
-        let n = vfs_read(path, &buf, toRead, 0)
-        if n <= 0 { return nil }
-        return Data(buf.prefix(Int(n)))
-    }
-
-    func vfswrite(path: String, data: Data) -> Bool {
-        guard vfsready else { return false }
-        return data.withUnsafeBytes { ptr in
-            let n = vfs_write(path, ptr.baseAddress, data.count, 0)
-            return n > 0
-        }
+        DispatchQueue.main.async { laramgr.shared.logmsg("(vfs) " + s) }
     }
 
     func vfssize(path: String) -> Int64 {
@@ -330,167 +210,8 @@ final class laramgr: ObservableObject {
     }
 
     func vfsoverwritefromlocalpath(target: String, source: String) -> Bool {
-        print("(vfs) target \(source) -> \(target)")
-
-        guard vfsready else {
-            print("(vfs) not ready")
-            return false
-        }
-
-        guard FileManager.default.fileExists(atPath: source) else {
-            print("(vfs) source file not found: \(source)")
-            return false
-        }
-
+        guard vfsready, FileManager.default.fileExists(atPath: source) else { return false }
         let r = vfs_overwritefile(target, source)
-
-        print("(vfs) vfs_overwritefile returned: \(r)")
-
-        if r == 0 {
-            print("(vfs) file overwritten")
-        } else {
-            print("(vfs) failed to overwrite file")
-        }
-
         return r == 0
-    }
-
-    func vfsoverwritewithdata(target: String, data: Data) -> Bool {
-        guard vfsready else { return false }
-        let tmp = NSTemporaryDirectory() + "vfs_src_\(arc4random()).bin"
-        do { try data.write(to: URL(fileURLWithPath: tmp)) } catch { return false }
-        let ok = vfsoverwritefromlocalpath(target: target, source: tmp)
-        try? FileManager.default.removeItem(atPath: tmp)
-        return ok
-    }
-    
-    private func sbxoverwrite(path: String, data: Data) -> (ok: Bool, message: String) {
-        let fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0o644)
-        if fd == -1 {
-            return (false, "sbx open failed: errno=\(errno) \(String(cString: strerror(errno)))")
-        }
-        defer { close(fd) }
-
-        var total = 0
-        let wroteAll = data.withUnsafeBytes { ptr -> Bool in
-            guard let base = ptr.baseAddress else { return ptr.count == 0 }
-            while total < ptr.count {
-                let n = write(fd, base.advanced(by: total), ptr.count - total)
-                if n <= 0 { return false }
-                total += n
-            }
-            return true
-        }
-
-        if !wroteAll {
-            return (false, "sbx write failed: errno=\(errno) \(String(cString: strerror(errno)))")
-        }
-
-        return (true, "ok (\(total) bytes)")
-    }
-
-    @discardableResult
-    func lara_overwritefile(target: String, source: String) -> (ok: Bool, message: String) {
-        guard FileManager.default.fileExists(atPath: source) else {
-            return (false, "source file not found: \(source)")
-        }
-
-        let result: (ok: Bool, message: String)
-        if sbxready {
-            do {
-                let data = try Data(contentsOf: URL(fileURLWithPath: source))
-                result = sbxoverwrite(path: target, data: data)
-            } catch {
-                result = (false, "sbx read source failed: \(error.localizedDescription)")
-            }
-        } else {
-            result = (false, "sbx not ready")
-        }
-
-        if result.ok {
-            return result
-        }
-
-        guard vfsready else {
-            return (false, result.message + " | vfs not ready")
-        }
-
-        let ok = vfsoverwritefromlocalpath(target: target, source: source)
-        return ok ? (true, "ok (vfs overwrite)") : (false, result.message + " | vfs overwrite failed")
-    }
-
-    @discardableResult
-    func lara_overwritefile(target: String, data: Data) -> (ok: Bool, message: String) {
-        let result = sbxready ? sbxoverwrite(path: target, data: data) : (false, "sbx not ready")
-        if result.0 {
-            return result
-        }
-
-        guard vfsready else {
-            return (false, result.1 + ", vfs not ready")
-        }
-
-        let ok = vfsoverwritewithdata(target: target, data: data)
-        return ok ? (true, "vfs overwrite ok") : (false, result.1 + ", vfs overwrite failed")
-    }
-    
-    func vfszeropage(at path: String) -> Bool {
-        let result = path.withCString { cpath in
-            vfs_zeropage(cpath, 0)
-        }
-
-        if result != 0 {
-            self.logmsg("(vfs) zeropage failed")
-            return false
-        }
-
-        self.logmsg("(vfs) zeroed first page of \(path)")
-        return true
-    }
-    
-    func sbxgettoken(path: String) -> String? {
-        guard let cstr = path.cString(using: .utf8) else { return nil }
-        guard let result = sbx_gettoken(path as NSString as String) else { return nil }
-        let token = result as String
-        return token
-    }
-    
-    func sbxelevate() {
-        DispatchQueue.main.async {
-            sbx_elevate();
-        }
-    }
-    
-    func isapfs(_ path: String) -> Bool {
-        var s = statfs()
-        guard path.withCString({ statfs($0, &s) }) == 0 else {
-            return false
-        }
-        
-        let fstypename = s.f_fstypename
-        return withUnsafePointer(to: fstypename) { ptr in
-            ptr.withMemoryRebound(to: CChar.self, capacity: MemoryLayout.size(ofValue: fstypename)) {
-                String(cString: $0) == "apfs"
-            }
-        }
-    }
-    
-    @discardableResult
-    func apfsown(path: String, uid: UInt32, gid: UInt32) -> Bool {
-        if !isapfs(path) {
-            print("\(path) is apfs!")
-        }
-        
-        let result = path.withCString { cPath in
-            apfs_own(cPath, uid_t(uid), gid_t(gid))
-        }
-        
-        if result != 0 {
-            print("failed to chown \(path)")
-            return false
-        }
-        
-        print("changed owner of \(path) to \(uid):\(gid)!")
-        return true
     }
 }

@@ -25,12 +25,7 @@ jobs:
 
       - name: build
         run: |
-          # 1. Tạo biến thời gian và tên file IPA
-          TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
-          IPA_NAME="lara_${TIMESTAMP}.ipa"
-          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
-          
-          # 2. Chạy Xcodebuild
+          mkdir -p build
           xcodebuild \
             -project lara.xcodeproj \
             -scheme lara \
@@ -39,8 +34,16 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             archive \
-            -archivePath $PWD/build/lara.xcarchive | tee build.log
+            -archivePath $PWD/build/lara.xcarchive | xcbeautify || xcodebuild \
+            -project lara.xcodeproj \
+            -scheme lara \
+            -configuration Debug \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            archive \
+            -archivePath $PWD/build/lara.xcarchive
       
           # 3. Kiểm tra App và đóng gói IPA
           APP_PATH="$PWD/build/lara.xcarchive/Products/Applications/lara.app"

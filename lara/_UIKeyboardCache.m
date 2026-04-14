@@ -1,9 +1,5 @@
 //
 //  _UIKeyboardCache.m
-<<<<<<< Updated upstream
-//  Clear Cache @p0s3id0n
-//
-//  Created by @p0s3id0n on 6/4/2026.
 =======
 //  @p0s3id0n
 //

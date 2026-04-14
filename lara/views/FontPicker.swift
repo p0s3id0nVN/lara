@@ -18,12 +18,29 @@ struct importedfont: Identifiable, Codable {
     let path: String
 }
 
+enum styletarget: String, CaseIterable {
+    case standard = "Standard"
+    case mono = "Mono"
+    case rounded = "Rounded"
+    case italic = "Italic"
+
+    var path: String {
+        switch self {
+            case .standard: return laramgr.fontpath
+            case .rounded: return laramgr.roundedfontpath
+            case .mono: return laramgr.monofontpath
+            case .italic: return laramgr.italicfontpath
+        }
+    }
+}
+
 struct FontPicker: View {
     @ObservedObject var mgr: laramgr
     @State private var showimporter = false
     @State private var customfonts: [importedfont] = load()
     @StateObject private var repostore = fontrepostore()
     @State private var showrepomgr = false
+    @State private var selectedTarget: styletarget = .standard
 
     var body: some View {
         NavigationStack {
@@ -60,6 +77,14 @@ struct FontPicker: View {
                 }
                 
                 Section {
+                    Picker("Target Style", selection: $selectedTarget) {
+                        ForEach(styletarget.allCases, id: \.self) { target in
+                            Text(target.rawValue).tag(target)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.vertical, 5)
+
                     if !customfonts.isEmpty {
                         ForEach(customfonts) { font in
                             Menu {
@@ -102,7 +127,6 @@ struct FontPicker: View {
                         }
                     }
                     
-                    // ĐÂY LÀ NÚT BỊ THIẾU
                     Button {
                         showimporter = true
                     } label: {
@@ -111,11 +135,10 @@ struct FontPicker: View {
                             Text("Import Font")
                         }
                     }
-                    
                 } header: {
-                    Text("Custom Fonts")
+                    Text("Settings")
                 } footer: {
-                    Text("Some custom fonts will not work for app icons and other stuff, some will not work at all. If you want them to work, patch the normal SFUI.ttf to use your fonts glyph symbols and use that as your custom font.")
+                    Text("Some custom fonts will not work for app icons and other stuff, some will not work at all. If you want them to work, patch your .ttf [here](https://neonmodder123.github.io/lara-font-patcher/).")
                 }
                 
                 Section {

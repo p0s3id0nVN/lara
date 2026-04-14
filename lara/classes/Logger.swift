@@ -90,6 +90,7 @@ class Logger: ObservableObject {
         "Timestamp type:",
         "lara[",
         "};",
+        "NSLayoutConstraint",
     ]
 
     init() {

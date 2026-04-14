@@ -242,6 +242,13 @@ struct AppsView: View {
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
+                            
+                            Spacer()
+                            
+                            if isbypassed(bundlepath: app.bundlepath) {
+                                Image(systemName: "checkmark.circle")
+                                    .foregroundColor(.green)
+                            }
                         }
                     }
                 }

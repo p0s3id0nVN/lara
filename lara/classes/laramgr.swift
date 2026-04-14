@@ -33,6 +33,9 @@ final class laramgr: ObservableObject {
     
     static let shared = laramgr()
     static let fontpath = "/System/Library/Fonts/Core/SFUI.ttf"
+    static let italicfontpath = "/System/Library/Fonts/Core/SFUIItalic.ttf"
+    static let roundedfontpath = "/System/Library/Fonts/Core/SFUIRounded.ttf"
+    static let monofontpath = "/System/Library/Fonts/Core/SFUIMono.ttf"
     static let adttimettc = "/System/Library/Fonts/Watch/ADTTime.ttc"
     
     private init() {}
@@ -104,7 +107,7 @@ final class laramgr: ObservableObject {
     func cleanFontCache() {
         self.logmsg("--- Purging Keyboard Cache via Private API ---")
         
-        // Gọi hàm purge từ file Objective-C bạn vừa thêm
+        // Gọi hàm purge từ file Objective-C
         // Hàm này sẽ tự động dlopen UIKitCore và gọi sharedInstance purge
         _UIKeyboardCache.purge()
         

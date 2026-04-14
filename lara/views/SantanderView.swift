@@ -181,14 +181,18 @@ final class SantanderPathListViewController: UITableViewController, UISearchResu
 
     override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
         let item = renderedContents[indexPath.row]
+        
         return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
             guard let self else { return UIMenu() }
+            
             let copyAction = UIAction(title: "Copy", image: UIImage(systemName: "doc.on.doc")) { [weak self] _ in
                 self?.copyItem(item)
             }
+            
             let infoAction = UIAction(title: "Get Info", image: UIImage(systemName: "info.circle")) { [weak self] _ in
                 self?.showInfoForItem(item)
             }
+            
             let replaceAction = UIAction(
                 title: "Replace With Clipboard",
                 image: UIImage(systemName: "doc.on.clipboard"),
@@ -196,10 +200,37 @@ final class SantanderPathListViewController: UITableViewController, UISearchResu
             ) { [weak self] _ in
                 self?.replaceItem(item)
             }
-            let deleteAction = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { [weak self] _ in
+            
+            let chmodAction = UIAction(
+                title: "Chmod",
+                image: UIImage(systemName: "lock.open")
+            ) { [weak self] _ in
+                self?.presentChmodDialog(for: item)
+            }
+            
+            let chownAction = UIAction(
+                title: "Chown",
+                image: UIImage(systemName: "person.crop.circle")
+            ) { [weak self] _ in
+                self?.presentChownDialog(for: item)
+            }
+            
+            let deleteAction = UIAction(
+                title: "Delete",
+                image: UIImage(systemName: "trash"),
+                attributes: .destructive
+            ) { [weak self] _ in
                 self?.confirmDelete(item)
             }
-            return UIMenu(children: [copyAction, infoAction, replaceAction, deleteAction])
+            
+            return UIMenu(children: [
+                copyAction,
+                infoAction,
+                replaceAction,
+                chmodAction,
+                chownAction,
+                deleteAction
+            ])
         })
     }
 
@@ -554,6 +585,98 @@ final class SantanderPathListViewController: UITableViewController, UISearchResu
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             self?.deleteItem(item)
         })
+        present(alert, animated: true)
+    }
+    
+    func showResultAlert(success: Bool, title: String) {
+        let alert = UIAlertController(
+            title: title,
+            message: success ? "Operation completed." : "Operation failed.",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    func presentChmodDialog(for item: SantanderPath) {
+        let alert = UIAlertController(
+            title: "Chmod",
+            message: item.lastPathComponent,
+            preferredStyle: .alert
+        )
+        
+        alert.addTextField { textField in
+            textField.placeholder = "e.g. 755"
+            textField.keyboardType = .numberPad
+        }
+        
+        let apply = UIAlertAction(title: "Apply", style: .default) { [weak self] _ in
+            guard
+                let self,
+                let text = alert.textFields?.first?.text,
+                let mode = UInt16(text, radix: 8)
+            else { return }
+            
+            item.path.withCString { cPath in
+                let result = apfs_mod(cPath, mode)
+                
+                DispatchQueue.main.async {
+                    self.showResultAlert(
+                        success: result == 0,
+                        title: "Chmod"
+                    )
+                }
+            }
+        }
+        
+        alert.addAction(apply)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        present(alert, animated: true)
+    }
+    
+    func presentChownDialog(for item: SantanderPath) {
+        let alert = UIAlertController(
+            title: "Chown",
+            message: item.lastPathComponent,
+            preferredStyle: .alert
+        )
+        
+        alert.addTextField { tf in
+            tf.placeholder = "UID (e.g. 501)"
+            tf.keyboardType = .numberPad
+        }
+        
+        alert.addTextField { tf in
+            tf.placeholder = "GID (e.g. 501)"
+            tf.keyboardType = .numberPad
+        }
+        
+        let apply = UIAlertAction(title: "Apply", style: .default) { [weak self] _ in
+            guard
+                let self,
+                let uidText = alert.textFields?[0].text,
+                let gidText = alert.textFields?[1].text,
+                let uid = UInt32(uidText),
+                let gid = UInt32(gidText)
+            else { return }
+            
+            item.path.withCString { cPath in
+                let result = apfs_own(cPath, uid, gid)
+                
+                DispatchQueue.main.async {
+                    self.showResultAlert(
+                        success: result == 0,
+                        title: "Chown"
+                    )
+                }
+            }
+        }
+        
+        alert.addAction(apply)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
         present(alert, animated: true)
     }
 

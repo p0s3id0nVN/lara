@@ -24,7 +24,7 @@ struct lara: App {
     @State private var selectedtab: Int = 1
     private let keepalivekey = "keepalive"
     @AppStorage("showfmintabs") private var showfmintabs: Bool = true
-    @AppStorage("selectedmethod") private var selectedmethod: method = .sbx
+    @AppStorage("selectedmethod") private var selectedmethod: method = .hybrid
 
     init() {
         // fix file picker

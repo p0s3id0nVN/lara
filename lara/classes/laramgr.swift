@@ -37,7 +37,6 @@ final class laramgr: ObservableObject {
     static let roundedfontpath = "/System/Library/Fonts/Core/SFUIRounded.ttf"
     static let monofontpath = "/System/Library/Fonts/Core/SFUIMono.ttf"
     static let adttimettc = "/System/Library/Fonts/Watch/ADTTime.ttc"
-    static let monofontpath = "/System/Library/Fonts/Core/SFUIMono.ttf"
     private init() {}
     // 1. Hàm tìm đường dẫn đúng
     func getValidPath(filename: String) -> String? {

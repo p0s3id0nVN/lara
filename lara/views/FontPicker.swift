@@ -115,10 +115,6 @@ struct FontPicker: View {
                                 } label: {
                                     Label("Clear Cache & Respring", systemImage: "trash.slash")
                                 }
-
-                                let success = mgr.vfsoverwritefromlocalpath(target: selectedTarget.path, source: font.path)
-                                success ? mgr.logmsg("font changed to \(font.name)") : mgr.logmsg("failed to change font")
-
                             } label: {
                                 HStack {
                                     Text(font.name)
@@ -131,7 +127,7 @@ struct FontPicker: View {
                         }
                     }
                     
-                    Button {
+                     Button {
                         showimporter = true
                     } label: {
                         HStack {
